@@ -1,7 +1,9 @@
 ﻿using MercadoAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.IO ;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace MercadoAPI.Controllers
@@ -10,10 +12,16 @@ namespace MercadoAPI.Controllers
     [ApiController]
     public class ProductoController : ControllerBase
     {
+        private readonly string rutaArchivo = "./archivo.txt";
+
         [HttpGet]
         public IActionResult GetProductos()
         {
-            string rutaArchivo = "./archivo.txt";
+            if (!System.IO.File.Exists(rutaArchivo))
+            {
+                return NotFound("Archivo no encontrado");
+            }
+
             string[] lineas = System.IO.File.ReadAllLines(rutaArchivo);
             List<Producto> productos = new List<Producto>();
 
@@ -37,9 +45,12 @@ namespace MercadoAPI.Controllers
         [HttpDelete("{id}")]
         public IActionResult EliminarProducto(int id)
         {
-            string rutaArchivo = "./archivo.txt";
-            var lineas = System.IO.File.ReadAllLines(rutaArchivo).ToList();
+            if (!System.IO.File.Exists(rutaArchivo))
+            {
+                return NotFound("Archivo no encontrado");
+            }
 
+            var lineas = System.IO.File.ReadAllLines(rutaArchivo).ToList();
             var lineasFiltradas = lineas.Where(linea => int.Parse(linea.Split(',')[0]) != id).ToList();
 
             if (lineasFiltradas.Count == lineas.Count)
@@ -54,7 +65,11 @@ namespace MercadoAPI.Controllers
         [HttpPut("{id}")]
         public IActionResult ActualizarProducto(int id, [FromBody] Producto productoActualizado)
         {
-            string rutaArchivo = "./archivo.txt";
+            if (!System.IO.File.Exists(rutaArchivo))
+            {
+                return NotFound("Archivo no encontrado");
+            }
+
             var lineas = System.IO.File.ReadAllLines(rutaArchivo).ToList();
 
             for (int i = 0; i < lineas.Count; i++)
@@ -75,18 +90,33 @@ namespace MercadoAPI.Controllers
         [HttpPost]
         public IActionResult InsertarProducto([FromBody] Producto nuevoProducto)
         {
-            string rutaArchivo = "./archivo.txt";
+            if (!System.IO.File.Exists(rutaArchivo))
+            {
+                // Crear archivo si no existe
+                System.IO.File.Create(rutaArchivo).Dispose();
+            }
+
             var productos = System.IO.File.ReadAllLines(rutaArchivo).ToList();
 
-            string nuevoProductoLinea = $"{nuevoProducto.Id},{nuevoProducto.Nombre},{nuevoProducto.Desripcion},{nuevoProducto.Precio},{nuevoProducto.Stock}";
+            int nuevoId = ObtenerSiguienteId(productos);
+
+            string nuevoProductoLinea = $"{nuevoId},{nuevoProducto.Nombre},{nuevoProducto.Desripcion},{nuevoProducto.Precio},{nuevoProducto.Stock}";
             productos.Add(nuevoProductoLinea);
 
             System.IO.File.WriteAllLines(rutaArchivo, productos);
 
-            return Ok("Producto insertado correctamente");
+            return Ok(new { Id = nuevoId, Mensaje = "Producto insertado correctamente" });
         }
 
+        private int ObtenerSiguienteId(List<string> productos)
+        {
+            if (productos.Count == 0)
+            {
+                return 1;
+            }
+
+            var ids = productos.Select(linea => int.Parse(linea.Split(',')[0])).ToList();
+            return ids.Max() + 1;
+        }
     }
-
-
 }
